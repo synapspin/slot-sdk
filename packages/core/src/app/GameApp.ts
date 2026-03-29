@@ -17,6 +17,7 @@ import type { TelemetryConfig } from '../utils/Telemetry';
 import type { GameContext, AutoPlayConfig } from '../state/StateMachine';
 import type { SpinResponse, InitResponse } from '../server/ServerMessage';
 import { Logger } from '../utils/Logger';
+import type { RuntimeConfig } from './GameConfigLoader';
 
 export class GameApp implements LayoutTarget {
   public app!: Application;
@@ -29,6 +30,8 @@ export class GameApp implements LayoutTarget {
   public featureRegistry!: FeatureRegistry;
   public responsiveManager!: ResponsiveManager;
   public telemetry!: Telemetry;
+  /** Runtime config loaded from external JSON */
+  public runtimeConfig: RuntimeConfig | null = null;
 
   private config: GameConfig;
   private gameContainer!: Container;
@@ -192,8 +195,13 @@ export class GameApp implements LayoutTarget {
 
   private _preloader: Preloader | null = null;
 
-  /** Call after setting up all decorative elements (bg, frame, etc.) to fade out the preloader.
-   *  This must be called from main.ts AFTER boot() and AFTER creating sprites. */
+  /** Apply runtime config loaded from external JSON. Call before boot or right after. */
+  applyRuntimeConfig(rc: RuntimeConfig): void {
+    this.runtimeConfig = rc;
+    this.logger.info(`Runtime config applied: ${rc.game.name} v${rc.game.version}`);
+  }
+
+  /** Call after setting up all decorative elements (bg, frame, etc.) to fade out the preloader. */
   async hidePreloader(): Promise<void> {
     if (this._preloader) {
       this._preloader.progress = 1;
@@ -319,6 +327,7 @@ export class GameApp implements LayoutTarget {
       set autoPlayConfig(v: AutoPlayConfig | null) { self._autoPlayConfig = v; },
       get featureState() { return self._featureState; },
       set featureState(v: Record<string, unknown>) { self._featureState = v; },
+      get runtimeConfig() { return self.runtimeConfig as Record<string, unknown> | null; },
       transitionTo: (stateId: string) => self.stateMachine.transitionTo(stateId),
     };
   }

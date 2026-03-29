@@ -1,5 +1,5 @@
 import { Sprite, Assets, Graphics } from 'pixi.js';
-import { GameApp, LogLevel, Logger } from '@lab9191/slot-core';
+import { GameApp, LogLevel, Logger, loadRuntimeConfig } from '@lab9191/slot-core';
 import type { ViewportInfo, LayoutMode } from '@lab9191/slot-core';
 import { gameConfig } from './GameDefinition';
 
@@ -13,7 +13,11 @@ async function main() {
     throw new Error('Game container not found');
   }
 
+  // Load external runtime config (operator-configurable)
+  const runtimeConfig = await loadRuntimeConfig('/config.json');
+
   const game = new GameApp(gameConfig);
+  game.applyRuntimeConfig(runtimeConfig);
   await game.boot(container);
 
   // ─── Decorative elements ─────────────────────────────────

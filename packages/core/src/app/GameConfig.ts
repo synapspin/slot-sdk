@@ -39,6 +39,11 @@ export interface GameConfig {
   preloader?: Partial<import('../ui/Preloader').PreloaderConfig>;
   /** Telemetry config — auto-logs all events for debugging & crash reports */
   telemetry?: Partial<import('../utils/Telemetry').TelemetryConfig>;
+  /** Big Win celebration thresholds (multipliers of bet) and durations */
+  bigWin?: {
+    thresholds?: { big?: number; mega?: number; epic?: number };
+    durations?: { big?: number; mega?: number; epic?: number };
+  };
   /** Ante bet multiplier (e.g. 1.25) */
   anteBetMultiplier?: number;
   /** Buy bonus options */

@@ -13,6 +13,8 @@ export interface GameContext {
   uiManager: UIManager;
   soundManager: SoundManager;
   server: IServerAdapter;
+  /** Runtime config from external JSON (bigWin thresholds, etc.) */
+  runtimeConfig: Record<string, unknown> | null;
 
   // Game state data
   balance: number;

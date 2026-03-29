@@ -60,7 +60,12 @@ export class WinPresentationState implements IState {
 
   private getBigWinCelebration(context: GameContext): BigWinCelebration {
     if (!this.bigWinCelebration) {
-      this.bigWinCelebration = new BigWinCelebration(context.eventBus, context.soundManager);
+      const bigWinCfg = context.runtimeConfig?.bigWin as Record<string, unknown> | undefined;
+      this.bigWinCelebration = new BigWinCelebration(
+        context.eventBus,
+        context.soundManager,
+        bigWinCfg,
+      );
       // Add to the reelSet's parent (reel layer) so it overlays the game
       const parent = context.reelSet.parent?.parent ?? context.reelSet.parent ?? context.reelSet;
       parent.addChild(this.bigWinCelebration);

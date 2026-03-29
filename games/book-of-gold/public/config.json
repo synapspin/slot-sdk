@@ -1,0 +1,82 @@
+{
+  "game": {
+    "id": "4-pots-of-luck",
+    "name": "4 Pots of Luck",
+    "version": "1.0.0"
+  },
+
+  "rtp": 95.7,
+  "volatility": "high",
+  "maxWin": 15000,
+
+  "bet": {
+    "levels": [20, 40, 60, 100, 200, 400, 600, 1000, 2000, 5000],
+    "default": 100,
+    "currency": "USD"
+  },
+
+  "bigWin": {
+    "thresholds": {
+      "big": 1,
+      "mega": 5,
+      "epic": 15
+    },
+    "durations": {
+      "big": 3000,
+      "mega": 4500,
+      "epic": 6000
+    }
+  },
+
+  "autoPlay": {
+    "presets": [10, 25, 50, 100, 250, 500],
+    "maxSpins": 1000,
+    "stopOnFeature": true
+  },
+
+  "anteBet": {
+    "enabled": true,
+    "multiplier": 1.25,
+    "description": "Increase bet by 25% for better Hold & Win odds"
+  },
+
+  "buyBonus": [
+    { "id": "random", "label": "Random Bonus", "costMultiplier": 70, "featureType": "holdAndWin" },
+    { "id": "super", "label": "Super Pot", "costMultiplier": 150, "featureType": "holdAndWin" }
+  ],
+
+  "features": {
+    "freeSpins": {
+      "triggerSymbolId": 9,
+      "triggerCount": 3,
+      "spinsAwarded": 10,
+      "retriggerable": true
+    },
+    "holdAndWin": {
+      "initialRespins": 3,
+      "cols": 5,
+      "rows": 3,
+      "jackpots": [
+        { "type": "mini", "label": "MINI", "value": 15 },
+        { "type": "minor", "label": "MINOR", "value": 30 },
+        { "type": "major", "label": "MAJOR", "value": 100 },
+        { "type": "grand", "label": "GRAND", "value": 3000 }
+      ]
+    }
+  },
+
+  "preloader": {
+    "brandText": "LAB9191",
+    "tagline": "G A M E S",
+    "bgColor": "#0a0a14",
+    "brandColor": "#ffffff",
+    "accentColor": "#22cc66",
+    "minDisplayTime": 2500
+  },
+
+  "server": {
+    "type": "mock",
+    "initialBalance": 100000,
+    "rtp": 0.96
+  }
+}
