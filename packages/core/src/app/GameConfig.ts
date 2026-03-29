@@ -3,6 +3,7 @@ import type { SymbolDefinition, PaytableEntry, PaylineDefinition } from '../symb
 import type { SoundConfig } from '../sound/SoundConfig';
 import type { IServerAdapter } from '../server/IServerAdapter';
 import type { IFeaturePlugin } from '../features/IFeaturePlugin';
+import type { PreloaderConfig } from '../ui/Preloader';
 
 export interface GameConfig {
   /** Unique game identifier */
@@ -35,6 +36,8 @@ export interface GameConfig {
   /** Asset manifest bundles */
   assetBundles: AssetBundleConfig[];
 
+  /** Preloader/splash screen config */
+  preloader?: Partial<PreloaderConfig>;
   /** Ante bet multiplier (e.g. 1.25) */
   anteBetMultiplier?: number;
   /** Buy bonus options */

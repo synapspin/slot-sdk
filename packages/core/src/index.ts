@@ -66,6 +66,8 @@ export { BetSelector } from './ui/BetSelector';
 export { AutoPlayPanel } from './ui/AutoPlayPanel';
 export { SettingsPanel } from './ui/SettingsPanel';
 export { InfoMenu } from './ui/InfoMenu';
+export { Preloader } from './ui/Preloader';
+export type { PreloaderConfig } from './ui/Preloader';
 export { Button } from './ui/components/Button';
 export type { ButtonConfig } from './ui/components/Button';
 export { Label } from './ui/components/Label';
