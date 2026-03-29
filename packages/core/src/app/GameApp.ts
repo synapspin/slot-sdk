@@ -18,6 +18,9 @@ import type { GameContext, AutoPlayConfig } from '../state/StateMachine';
 import type { SpinResponse, InitResponse } from '../server/ServerMessage';
 import { Logger } from '../utils/Logger';
 import type { RuntimeConfig } from './GameConfigLoader';
+import { RoundRecorder } from '../replay/RoundRecorder';
+import type { RoundRecord } from '../replay/RoundRecorder';
+import { ReplayServerAdapter } from '../replay/ReplayPlayer';
 
 export class GameApp implements LayoutTarget {
   public app!: Application;
@@ -30,8 +33,11 @@ export class GameApp implements LayoutTarget {
   public featureRegistry!: FeatureRegistry;
   public responsiveManager!: ResponsiveManager;
   public telemetry!: Telemetry;
+  public roundRecorder!: RoundRecorder;
   /** Runtime config loaded from external JSON */
   public runtimeConfig: RuntimeConfig | null = null;
+  /** True if game is in replay mode (playing back a recorded round) */
+  public replayMode = false;
 
   private config: GameConfig;
   private gameContainer!: Container;
@@ -77,11 +83,33 @@ export class GameApp implements LayoutTarget {
     });
     container.appendChild(this.app.canvas);
 
+    // Check for replay mode (URL param ?replay=...)
+    const replayRecord = RoundRecorder.getReplayFromUrl();
+    if (replayRecord) {
+      this.replayMode = true;
+      this.config.server = new ReplayServerAdapter(replayRecord);
+      this.logger.info(`REPLAY MODE: round ${replayRecord.roundId}`);
+    }
+
     // Initialize telemetry — auto-logs every event transparently
     this.telemetry = new Telemetry(
       this.eventBus,
       () => this.stateMachine?.currentStateId ?? null,
       this.config.telemetry,
+    );
+
+    // Initialize round recorder — records every round for replay/sharing
+    this.roundRecorder = new RoundRecorder(
+      this.eventBus,
+      () => ({
+        balance: this._balance,
+        bet: this._currentBet,
+        currency: this._currency,
+        anteBetEnabled: this._anteBetEnabled,
+        gameId: this.config.id,
+        gameVersion: this.config.version,
+        featureState: this._featureState,
+      }),
     );
 
     // Show HTML preloader overlay (does NOT touch PixiJS at all)

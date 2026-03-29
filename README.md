@@ -50,6 +50,7 @@ graph LR
 | **Win Presentation** | Win lines with payouts, GSAP-powered Big Win celebration with coin fountain |
 | **Preloader** | Branded splash screen with animated letter reveal and progress bar |
 | **Telemetry** | Auto-logs every event transparently for crash reports and debugging |
+| **Round Replay** | Record rounds, share by URL, deterministic replay via event sourcing |
 | **Runtime Config** | External `config.json` for operator-level configuration |
 | **Sound** | Howler.js integration with mute, volume, music support |
 | **Server Adapter** | Interface pattern — swap between mock and real backend |
@@ -76,6 +77,7 @@ See [docs/getting-started.md](docs/getting-started.md) for a full walkthrough.
 - [UI System](docs/ui-system.md)
 - [Runtime Config](docs/runtime-config.md)
 - [Telemetry & Debugging](docs/telemetry.md)
+- [Round Replay](docs/replay.md)
 - [Responsive Layout](docs/responsive.md)
 
 ## Tech Stack

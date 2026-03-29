@@ -108,6 +108,11 @@ export { Telemetry } from './utils/Telemetry';
 export type { TelemetryConfig, TelemetryEvent } from './utils/Telemetry';
 export { DevTools } from './utils/DevTools';
 
+// Replay
+export { RoundRecorder } from './replay/RoundRecorder';
+export type { RoundRecord } from './replay/RoundRecorder';
+export { ReplayServerAdapter } from './replay/ReplayPlayer';
+
 // FX
 export { CoinShower } from './fx/CoinShower';
 export type { CoinShowerConfig } from './fx/CoinShower';
