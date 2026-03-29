@@ -32,7 +32,7 @@ export class UIManager implements LayoutTarget {
     const designWidth = config.layout.designWidth;
     const barHeight = config.ui.bottomBarHeight ?? 70;
 
-    // Bottom bar (no spin button inside — we use side spin button instead)
+    // Bottom bar
     this.bottomBar = new BottomBar(designWidth, barHeight, eventBus);
     this.bottomBar.y = config.layout.designHeight - barHeight;
     this.layer.addChild(this.bottomBar);
@@ -41,15 +41,9 @@ export class UIManager implements LayoutTarget {
     const reelArea = config.layout.reelArea;
     const spinRadius = 65;
     this.sideSpinButton = new SpinButton(spinRadius, eventBus, true);
-    // Position well clear of reel frame right edge (~35px frame padding + gap)
     this.sideSpinButton.x = reelArea.x + reelArea.width + 35 + 80;
     this.sideSpinButton.y = reelArea.y + reelArea.height / 2;
     this.layer.addChild(this.sideSpinButton);
-
-    // Sync side spin button state with bottom bar spin button
-    this.eventBus.on('state:changed', () => {
-      this.bottomBar.spinButton.state = this.sideSpinButton.state;
-    });
 
     // Auto play panel
     this.autoPlayPanel = new AutoPlayPanel(
@@ -123,19 +117,33 @@ export class UIManager implements LayoutTarget {
     this.bottomBar.setInteractive(enabled);
   }
 
+  /**
+   * Layout callback — positions all UI within the safe area.
+   * Background/reels can bleed outside safe area, but interactive elements stay inside.
+   */
   layout(viewport: ViewportInfo, mode: LayoutMode): void {
     const barHeight = this.config.ui.bottomBarHeight ?? 70;
     const reelArea = this.config.layout.reelArea;
+    const safe = viewport.safeArea;
 
-    this.bottomBar.y = this.config.layout.designHeight - barHeight;
+    // Bottom bar — sits at bottom of design but respects safe area bottom inset
+    const barY = Math.min(
+      this.config.layout.designHeight - barHeight,
+      safe.y + safe.height - barHeight,
+    );
+    this.bottomBar.y = barY;
     this.bottomBar.layoutMode(mode, this.config.layout.designWidth, barHeight);
 
+    // Ensure bottom bar controls are within safe area horizontally
+    this.bottomBar.setSafeMargins(safe.x, this.config.layout.designWidth - safe.x - safe.width);
+
     if (mode === 'desktop') {
-      // Large button to the right of reels
+      // Side spin button — right of reels but within safe area
       this.sideSpinButton.visible = true;
-      this.sideSpinButton.x = reelArea.x + reelArea.width + 35 + 80;
+      const spinX = reelArea.x + reelArea.width + 35 + 80;
+      const maxX = safe.x + safe.width - 70; // 70px from safe right edge
+      this.sideSpinButton.x = Math.min(spinX, maxX);
       this.sideSpinButton.y = reelArea.y + reelArea.height / 2;
-      // Hide bottom bar spin button in desktop
       this.bottomBar.spinButton.visible = false;
     } else {
       // Mobile: hide side button, show in bottom bar

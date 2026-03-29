@@ -132,6 +132,9 @@ export const gameConfig: GameConfig = {
     designWidth: 1920,
     designHeight: 1080,
     orientation: 'both',
+    /** Safe area — all interactive UI stays within this rect.
+     *  Background and decorative elements can bleed outside. */
+    safeArea: { x: 40, y: 10, width: 1840, height: 1060 },
     reelArea: { x: 480, y: 165, width: 1000, height: 590 },
   },
 

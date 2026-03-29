@@ -2,7 +2,7 @@
 export { GameApp } from './app/GameApp';
 export type { GameConfig, LayoutConfig, UIConfig, InfoPageConfig, AssetBundleConfig, BuyBonusOption } from './app/GameConfig';
 export { ResponsiveManager } from './app/ResponsiveManager';
-export type { LayoutMode, LayoutTarget, ViewportInfo } from './app/ResponsiveManager';
+export type { LayoutMode, LayoutTarget, ViewportInfo, SafeAreaInsets } from './app/ResponsiveManager';
 
 // State Machine
 export { StateMachine } from './state/StateMachine';

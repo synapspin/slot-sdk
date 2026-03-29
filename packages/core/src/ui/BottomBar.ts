@@ -184,10 +184,23 @@ export class BottomBar extends Container {
     this.autoPlayBtn.enabled = enabled;
   }
 
+  /** Offset content to stay within safe area */
+  private safeLeft = 0;
+  private safeRight = 0;
+
+  setSafeMargins(left: number, right: number): void {
+    this.safeLeft = left;
+    this.safeRight = right;
+  }
+
   /** Reposition elements for layout mode */
   layoutMode(mode: LayoutMode, width: number, height: number): void {
     this.barWidth = width;
     this.barHeight = height;
+
+    const sl = this.safeLeft;
+    const sr = this.safeRight;
+    const safeWidth = width - sl - sr;
 
     this.bg.clear();
     this.bg.rect(0, 0, width, height);
@@ -196,29 +209,29 @@ export class BottomBar extends Container {
     this.bg.fill({ color: 0x333366, alpha: 0.5 });
 
     if (mode === 'mobile') {
-      // Compact layout
-      this.balanceLabel.x = 60;
-      this.balanceValue.x = 60;
-      this.betLabel.x = 180;
-      this.betSelector.x = 130;
-      this.winLabel.x = width - 180;
-      this.winValue.x = width - 180;
+      // Compact layout — offset by safe margins
+      this.balanceLabel.x = sl + 60;
+      this.balanceValue.x = sl + 60;
+      this.betLabel.x = sl + 180;
+      this.betSelector.x = sl + 130;
+      this.winLabel.x = width - sr - 180;
+      this.winValue.x = width - sr - 180;
       this.spinButton.x = width / 2;
       this.spinButton.y = height / 2;
-      this.menuBtn.x = 10;
-      this.autoPlayBtn.x = width - 90;
+      this.menuBtn.x = sl + 10;
+      this.autoPlayBtn.x = width - sr - 90;
     } else {
-      // Desktop layout
-      this.balanceLabel.x = 100;
-      this.balanceValue.x = 100;
-      this.betLabel.x = 320;
-      this.betSelector.x = 250;
-      this.winLabel.x = width - 300;
-      this.winValue.x = width - 300;
-      this.spinButton.x = width - 70;
+      // Desktop layout — offset by safe margins
+      this.balanceLabel.x = sl + 100;
+      this.balanceValue.x = sl + 100;
+      this.betLabel.x = sl + 320;
+      this.betSelector.x = sl + 250;
+      this.winLabel.x = width - sr - 300;
+      this.winValue.x = width - sr - 300;
+      this.spinButton.x = width - sr - 70;
       this.spinButton.y = height / 2;
-      this.menuBtn.x = 20;
-      this.autoPlayBtn.x = width - 150;
+      this.menuBtn.x = sl + 20;
+      this.autoPlayBtn.x = width - sr - 150;
     }
   }
 }
