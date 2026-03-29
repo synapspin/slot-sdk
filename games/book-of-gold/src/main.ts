@@ -148,6 +148,9 @@ async function main() {
   game.onLayout = doLayout;
   doLayout(game.responsiveManager.viewport, game.responsiveManager.mode);
 
+  // Everything is built — now fade out the preloader
+  await game.hidePreloader();
+
   if (import.meta.env.DEV) {
     (window as unknown as Record<string, unknown>).game = game;
   }

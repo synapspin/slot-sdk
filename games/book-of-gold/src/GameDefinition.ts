@@ -126,7 +126,7 @@ export const gameConfig: GameConfig = {
   id: '4-pots-of-luck',
   name: '4 Pots of Luck',
   version: '1.0.0',
-  backgroundColor: 0x0a2e0a,
+  backgroundColor: 0x0a0a14,
 
   preloader: {
     brandText: 'LAB9191',

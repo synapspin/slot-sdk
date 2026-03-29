@@ -173,14 +173,25 @@ export class GameApp implements LayoutTarget {
       this.stateMachine.update(delta);
     });
 
-    // Fade out preloader (HTML overlay — PixiJS untouched)
-    if (preloader) {
-      preloader.progress = 1;
-      await preloader.finish();
-    }
+    // Store preloader reference — finish() will be called after game sets up decorations
+    this._preloader = preloader;
 
     this.eventBus.emit('game:ready', undefined as never);
     this.logger.info('Game ready');
+  }
+
+  private _preloader: Preloader | null = null;
+
+  /** Call after setting up all decorative elements (bg, frame, etc.) to fade out the preloader.
+   *  This must be called from main.ts AFTER boot() and AFTER creating sprites. */
+  async hidePreloader(): Promise<void> {
+    if (this._preloader) {
+      this._preloader.progress = 1;
+      // Wait 2 frames for PixiJS to render the scene underneath
+      await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+      await this._preloader.finish();
+      this._preloader = null;
+    }
   }
 
   private async initFromServer(): Promise<void> {
