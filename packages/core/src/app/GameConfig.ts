@@ -37,6 +37,8 @@ export interface GameConfig {
 
   /** Preloader/splash screen config (HTML overlay — does not affect PixiJS) */
   preloader?: Partial<import('../ui/Preloader').PreloaderConfig>;
+  /** Telemetry config — auto-logs all events for debugging & crash reports */
+  telemetry?: Partial<import('../utils/Telemetry').TelemetryConfig>;
   /** Ante bet multiplier (e.g. 1.25) */
   anteBetMultiplier?: number;
   /** Buy bonus options */

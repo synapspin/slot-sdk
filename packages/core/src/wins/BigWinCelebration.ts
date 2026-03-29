@@ -1,31 +1,40 @@
 import { Container, Graphics, Text } from 'pixi.js';
+import gsap from 'gsap';
 import type { EventBus } from '../events/EventBus';
 import type { SoundManager } from '../sound/SoundManager';
+import { CoinShower } from '../fx/CoinShower';
 import { formatCurrency } from '../math/Currency';
 import { Logger } from '../utils/Logger';
 
 export type BigWinTier = 'big' | 'mega' | 'epic';
 
 export interface BigWinConfig {
-  /** Multiplier thresholds relative to bet */
   thresholds: { big: number; mega: number; epic: number };
-  /** Duration for each tier (ms) */
   durations: { big: number; mega: number; epic: number };
 }
 
 const DEFAULT_CONFIG: BigWinConfig = {
   thresholds: { big: 10, mega: 25, epic: 50 },
-  durations: { big: 3000, mega: 4000, epic: 5000 },
+  durations: { big: 3000, mega: 4500, epic: 6000 },
+};
+
+const TIER_STYLES: Record<BigWinTier, { label: string; color: number; glowColor: string; fontSize: number }> = {
+  big: { label: 'BIG WIN!', color: 0xffd700, glowColor: '#ffd700', fontSize: 72 },
+  mega: { label: 'MEGA WIN!', color: 0xff6600, glowColor: '#ff6600', fontSize: 84 },
+  epic: { label: 'EPIC WIN!', color: 0xff0066, glowColor: '#ff0066', fontSize: 96 },
 };
 
 export class BigWinCelebration extends Container {
   private overlay: Graphics;
   private tierText: Text;
   private amountText: Text;
+  private coinShower: CoinShower;
   private eventBus: EventBus;
   private soundManager: SoundManager;
   private config: BigWinConfig;
   private logger = new Logger('BigWinCelebration');
+  private timeline: gsap.core.Timeline | null = null;
+  private skipResolve: (() => void) | null = null;
 
   constructor(
     eventBus: EventBus,
@@ -37,7 +46,7 @@ export class BigWinCelebration extends Container {
     this.soundManager = soundManager;
     this.config = { ...DEFAULT_CONFIG, ...config };
 
-    // Overlay
+    // Dark overlay
     this.overlay = new Graphics();
     this.overlay.rect(0, 0, 1920, 1080);
     this.overlay.fill({ color: 0x000000, alpha: 0.7 });
@@ -53,7 +62,7 @@ export class BigWinCelebration extends Container {
         fontWeight: 'bold',
         dropShadow: {
           color: 0x000000,
-          blur: 8,
+          blur: 12,
           distance: 4,
           angle: Math.PI / 4,
         },
@@ -62,20 +71,20 @@ export class BigWinCelebration extends Container {
     });
     this.tierText.anchor.set(0.5);
     this.tierText.x = 960;
-    this.tierText.y = 400;
+    this.tierText.y = 380;
     this.addChild(this.tierText);
 
-    // Amount
+    // Amount counter
     this.amountText = new Text({
       text: '',
       style: {
         fontFamily: 'Roboto, Arial, sans-serif',
-        fontSize: 60,
+        fontSize: 56,
         fill: 0xffffff,
         fontWeight: 'bold',
         dropShadow: {
           color: 0x000000,
-          blur: 6,
+          blur: 8,
           distance: 3,
           angle: Math.PI / 4,
         },
@@ -83,15 +92,18 @@ export class BigWinCelebration extends Container {
     });
     this.amountText.anchor.set(0.5);
     this.amountText.x = 960;
-    this.amountText.y = 520;
+    this.amountText.y = 500;
     this.addChild(this.amountText);
+
+    // Coin shower
+    this.coinShower = new CoinShower();
+    this.addChild(this.coinShower);
 
     this.visible = false;
     this.eventMode = 'static';
     this.on('pointerdown', () => this.skip());
   }
 
-  /** Determine if the win qualifies for a big win celebration */
   getTier(winAmount: number, bet: number): BigWinTier | null {
     const multiplier = winAmount / bet;
     if (multiplier >= this.config.thresholds.epic) return 'epic';
@@ -100,60 +112,150 @@ export class BigWinCelebration extends Container {
     return null;
   }
 
-  /** Show big win celebration */
   async show(tier: BigWinTier, amount: number, currency: string): Promise<void> {
     this.visible = true;
+    const style = TIER_STYLES[tier];
+    const duration = this.config.durations[tier] / 1000; // seconds for GSAP
 
-    const tierLabels = {
-      big: 'BIG WIN!',
-      mega: 'MEGA WIN!',
-      epic: 'EPIC WIN!',
-    };
+    // Setup initial state
+    this.tierText.text = style.label;
+    this.tierText.style.fill = style.color;
+    this.tierText.style.fontSize = style.fontSize;
+    this.tierText.scale.set(0);
+    this.tierText.alpha = 0;
 
-    const tierColors = {
-      big: 0xffd700,
-      mega: 0xff6600,
-      epic: 0xff0066,
-    };
+    this.amountText.text = formatCurrency(0, currency);
+    this.amountText.scale.set(0.5);
+    this.amountText.alpha = 0;
 
-    this.tierText.text = tierLabels[tier];
-    this.tierText.style.fill = tierColors[tier];
-    this.amountText.text = formatCurrency(amount, currency);
+    this.overlay.alpha = 0;
 
     this.soundManager.play('bigWin');
     this.eventBus.emit('win:big', { tier, amount });
-
     this.logger.info(`${tier} win: ${amount}`);
 
-    // Count up animation
-    const duration = this.config.durations[tier];
-    const steps = 30;
-    const stepTime = duration / steps;
+    // Start coin fountain
+    this.coinShower.burst(960, 350, tier === 'epic' ? 1.5 : tier === 'mega' ? 1.2 : 0.8);
 
-    for (let i = 1; i <= steps; i++) {
-      if (!this.visible) break;
-      const current = Math.round((amount / steps) * i);
-      this.amountText.text = formatCurrency(current, currency);
+    // GSAP timeline
+    this.timeline = gsap.timeline();
 
-      // Scale pulse
-      const pulse = 1 + Math.sin((i / steps) * Math.PI * 4) * 0.05;
-      this.tierText.scale.set(pulse);
+    // Overlay fade in
+    this.timeline.to(this.overlay, {
+      alpha: 0.7,
+      duration: 0.3,
+      ease: 'power2.out',
+    });
 
-      await new Promise((r) => setTimeout(r, stepTime));
+    // Tier text — dramatic entrance
+    this.timeline.to(this.tierText, {
+      alpha: 1,
+      duration: 0.1,
+    }, '<');
+    this.timeline.to(this.tierText.scale, {
+      x: 1.2,
+      y: 1.2,
+      duration: 0.5,
+      ease: 'elastic.out(1.2, 0.5)',
+    }, '<');
+    this.timeline.to(this.tierText.scale, {
+      x: 1,
+      y: 1,
+      duration: 0.3,
+      ease: 'power2.inOut',
+    });
+
+    // Amount text fade in
+    this.timeline.to(this.amountText, {
+      alpha: 1,
+      duration: 0.3,
+    }, '-=0.2');
+    this.timeline.to(this.amountText.scale, {
+      x: 1,
+      y: 1,
+      duration: 0.4,
+      ease: 'back.out(2)',
+    }, '<');
+
+    // Count up the amount
+    const counter = { value: 0 };
+    this.timeline.to(counter, {
+      value: amount,
+      duration: duration * 0.6,
+      ease: 'power2.out',
+      onUpdate: () => {
+        this.amountText.text = formatCurrency(Math.round(counter.value), currency);
+      },
+    }, '-=0.2');
+
+    // Pulsating tier text during count
+    this.timeline.to(this.tierText.scale, {
+      x: 1.05,
+      y: 1.05,
+      duration: 0.4,
+      repeat: Math.floor(duration / 0.8),
+      yoyo: true,
+      ease: 'sine.inOut',
+    }, '<');
+
+    // More coin bursts during count-up
+    const burstCount = tier === 'epic' ? 4 : tier === 'mega' ? 3 : 2;
+    for (let i = 1; i <= burstCount; i++) {
+      this.timeline.call(() => {
+        this.coinShower.burst(
+          960 + (Math.random() - 0.5) * 600,
+          300 + Math.random() * 100,
+          0.3,
+        );
+      }, [], `<+=${(duration * 0.5) / burstCount * i}`);
     }
 
-    this.amountText.text = formatCurrency(amount, currency);
+    // Hold at final amount
+    this.timeline.to({}, { duration: 1.0 });
 
-    // Wait for click or timeout
-    await new Promise((r) => setTimeout(r, 1500));
-    this.hide();
+    // Wait for timeline or skip
+    await new Promise<void>((resolve) => {
+      this.skipResolve = resolve;
+      this.timeline!.then(() => {
+        this.skipResolve = null;
+        resolve();
+      });
+    });
+
+    // Fade out
+    await this.hideAnimation();
   }
 
   skip(): void {
-    this.hide();
+    if (this.timeline) {
+      this.timeline.progress(1); // jump to end
+      this.timeline.kill();
+      this.timeline = null;
+    }
+    if (this.skipResolve) {
+      this.skipResolve();
+      this.skipResolve = null;
+    }
   }
 
-  hide(): void {
-    this.visible = false;
+  private async hideAnimation(): Promise<void> {
+    await new Promise<void>((resolve) => {
+      gsap.to(this, {
+        alpha: 0,
+        duration: 0.4,
+        ease: 'power2.in',
+        onComplete: () => {
+          this.visible = false;
+          this.alpha = 1;
+          this.coinShower.clear();
+          resolve();
+        },
+      });
+    });
+  }
+
+  /** Must be called every frame to animate coins */
+  update(): void {
+    this.coinShower.update();
   }
 }

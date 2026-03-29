@@ -12,6 +12,11 @@ test.describe('Book of Gold - Slot Game', () => {
     });
 
     await page.goto('http://127.0.0.1:3333/', { waitUntil: 'networkidle' });
+    // Wait for game to fully initialize (including preloader)
+    await page.waitForFunction(
+      () => !!(window as any).game?.stateMachine?.currentStateId,
+      { timeout: 15000 },
+    );
   });
 
   test('game loads and creates a canvas', async ({ page }) => {
@@ -27,27 +32,13 @@ test.describe('Book of Gold - Slot Game', () => {
   });
 
   test('game initializes and reaches idle state', async ({ page }) => {
-    await page.waitForSelector('canvas', { timeout: 10000 });
-
-    // Wait for game to be ready
-    const stateId = await page.evaluate(async () => {
-      // Wait for game.ready
-      const game = (window as any).game;
-      if (!game) {
-        // Wait a bit more
-        await new Promise((r) => setTimeout(r, 2000));
-      }
-      const g = (window as any).game;
-      return g?.stateMachine?.currentStateId ?? 'not-found';
+    const stateId = await page.evaluate(() => {
+      return (window as any).game?.stateMachine?.currentStateId ?? 'not-found';
     });
-
     expect(stateId).toBe('idle');
   });
 
   test('game has correct initial balance and bet', async ({ page }) => {
-    await page.waitForSelector('canvas', { timeout: 10000 });
-    await page.waitForTimeout(2000);
-
     const state = await page.evaluate(() => {
       const g = (window as any).game;
       if (!g) return null;

@@ -14,7 +14,7 @@ export default defineConfig({
       fileName: 'slot-core',
     },
     rollupOptions: {
-      external: ['pixi.js', 'howler'],
+      external: ['pixi.js', 'howler', 'gsap'],
     },
   },
 });

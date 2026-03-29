@@ -102,4 +102,10 @@ export { TweenManager, Easing } from './utils/Tween';
 export type { EasingFunction } from './utils/Tween';
 export { Pool } from './utils/Pool';
 export { Logger, LogLevel } from './utils/Logger';
+export { Telemetry } from './utils/Telemetry';
+export type { TelemetryConfig, TelemetryEvent } from './utils/Telemetry';
 export { DevTools } from './utils/DevTools';
+
+// FX
+export { CoinShower } from './fx/CoinShower';
+export type { CoinShowerConfig } from './fx/CoinShower';

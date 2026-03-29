@@ -11,7 +11,7 @@ export class WinPresentationState implements IState {
   private bigWinCelebration: BigWinCelebration | null = null;
   private skipClickHandler: (() => void) | null = null;
   private skipKeyHandler: ((e: KeyboardEvent) => void) | null = null;
-  private skipPointerHandler: (() => void) | null = null;
+  private bigWinTickerFn: (() => void) | null = null;
 
   async enter(context: GameContext): Promise<void> {
     const response = context.lastResponse;
@@ -21,8 +21,6 @@ export class WinPresentationState implements IState {
     }
 
     this.logger.debug(`Presenting ${response.wins.length} wins, total: ${response.totalWin}`);
-
-    // Update win display
     context.uiManager.updateWin(response.totalWin, context.currency);
 
     // Create win presenter if needed
@@ -35,20 +33,16 @@ export class WinPresentationState implements IState {
       );
     }
 
-    // Check for big win celebration
-    if (!this.bigWinCelebration) {
-      this.bigWinCelebration = new BigWinCelebration(context.eventBus, context.soundManager);
-    }
-
-    const tier = this.bigWinCelebration.getTier(response.totalWin, context.currentBet);
+    // Big win celebration
+    const tier = this.getBigWinCelebration(context).getTier(response.totalWin, context.currentBet);
     if (tier && !context.quickSpinEnabled && !context.turboSpinEnabled) {
-      await this.bigWinCelebration.show(tier, response.totalWin, context.currency);
+      await this.bigWinCelebration!.show(tier, response.totalWin, context.currency);
     }
 
-    // Register skip handlers — click, tap or space skips win presentation
+    // Register skip handlers
     this.registerSkipHandlers();
 
-    // Present individual wins (skip entirely in turbo mode)
+    // Present individual wins (skip in turbo)
     if (!context.turboSpinEnabled) {
       await this.winPresenter.presentWins(response.wins, response.totalWin);
     }
@@ -61,10 +55,38 @@ export class WinPresentationState implements IState {
     this.unregisterSkipHandlers();
     this.winPresenter?.abort();
     context.reelSet.resetHighlights();
+    this.removeBigWinTicker(context);
+  }
+
+  private getBigWinCelebration(context: GameContext): BigWinCelebration {
+    if (!this.bigWinCelebration) {
+      this.bigWinCelebration = new BigWinCelebration(context.eventBus, context.soundManager);
+      // Add to the reelSet's parent (reel layer) so it overlays the game
+      const parent = context.reelSet.parent?.parent ?? context.reelSet.parent ?? context.reelSet;
+      parent.addChild(this.bigWinCelebration);
+
+      // Register ticker for coin animation — need access to app ticker
+      // Use eventBus to proxy the update (GameApp ticker calls reelSet.update which is already per-frame)
+      this.bigWinTickerFn = () => this.bigWinCelebration!.update();
+      // Attach to requestAnimationFrame since we don't have direct ticker access
+      const animate = () => {
+        if (this.bigWinCelebration?.visible) {
+          this.bigWinCelebration.update();
+          requestAnimationFrame(animate);
+        }
+      };
+      context.eventBus.on('win:big', () => {
+        requestAnimationFrame(animate);
+      });
+    }
+    return this.bigWinCelebration;
+  }
+
+  private removeBigWinTicker(_context: GameContext): void {
+    // Cleanup handled by BigWinCelebration.hide
   }
 
   private registerSkipHandlers(): void {
-    // Keyboard: space or enter to skip
     this.skipKeyHandler = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
@@ -73,13 +95,9 @@ export class WinPresentationState implements IState {
     };
     window.addEventListener('keydown', this.skipKeyHandler);
 
-    // Mouse click anywhere on canvas to skip
-    this.skipClickHandler = () => {
-      this.skipPresentation();
-    };
-    // Small delay so the spin button release doesn't immediately skip
     setTimeout(() => {
-      window.addEventListener('pointerdown', this.skipClickHandler!);
+      this.skipClickHandler = () => this.skipPresentation();
+      window.addEventListener('pointerdown', this.skipClickHandler);
     }, 200);
   }
 
@@ -95,6 +113,7 @@ export class WinPresentationState implements IState {
   }
 
   private skipPresentation(): void {
+    this.bigWinCelebration?.skip();
     this.winPresenter?.abort();
   }
 }

@@ -12,6 +12,8 @@ import { Preloader } from '../ui/Preloader';
 import { GameStateMachine } from '../state/GameStateMachine';
 import { FeatureRegistry } from '../features/FeatureRegistry';
 import { TweenManager } from '../utils/Tween';
+import { Telemetry } from '../utils/Telemetry';
+import type { TelemetryConfig } from '../utils/Telemetry';
 import type { GameContext, AutoPlayConfig } from '../state/StateMachine';
 import type { SpinResponse, InitResponse } from '../server/ServerMessage';
 import { Logger } from '../utils/Logger';
@@ -26,6 +28,7 @@ export class GameApp implements LayoutTarget {
   public stateMachine!: GameStateMachine;
   public featureRegistry!: FeatureRegistry;
   public responsiveManager!: ResponsiveManager;
+  public telemetry!: Telemetry;
 
   private config: GameConfig;
   private gameContainer!: Container;
@@ -70,6 +73,13 @@ export class GameApp implements LayoutTarget {
       autoDensity: true,
     });
     container.appendChild(this.app.canvas);
+
+    // Initialize telemetry — auto-logs every event transparently
+    this.telemetry = new Telemetry(
+      this.eventBus,
+      () => this.stateMachine?.currentStateId ?? null,
+      this.config.telemetry,
+    );
 
     // Show HTML preloader overlay (does NOT touch PixiJS at all)
     const preloader = this.config.preloader
