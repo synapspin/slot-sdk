@@ -17,7 +17,6 @@ async function main() {
   await game.boot(container);
 
   // ─── Decorative elements ─────────────────────────────────
-  // Background
   let bg: Sprite | null = null;
   const bgTexture = Assets.get('bg_main');
   if (bgTexture) {
@@ -25,11 +24,9 @@ async function main() {
     game.layers.game.addChildAt(bg, 0);
   }
 
-  // Dark reel background
   const reelBg = new Graphics();
   game.layers.reels.addChildAt(reelBg, 0);
 
-  // Reel frame (on fx layer — above symbols)
   let frame: Sprite | null = null;
   const frameTexture = Assets.get('reel_frame');
   if (frameTexture) {
@@ -37,7 +34,6 @@ async function main() {
     game.layers.fx.addChildAt(frame, 0);
   }
 
-  // Game title
   let title: Sprite | null = null;
   const titleTexture = Assets.get('game_title');
   if (titleTexture) {
@@ -46,7 +42,6 @@ async function main() {
     game.layers.game.addChild(title);
   }
 
-  // Leprechaun character
   let leprechaun: Sprite | null = null;
   const leprechaunTexture = Assets.get('leprechaun_full');
   if (leprechaunTexture) {
@@ -55,21 +50,34 @@ async function main() {
     game.layers.game.addChild(leprechaun);
   }
 
-  // ─── Layout callback — repositions everything on resize/orientation ─
   const framePad = 35;
 
+  // ─── Layout ──────────────────────────────────────────────
   const doLayout = (viewport: ViewportInfo, mode: LayoutMode) => {
     const dw = viewport.designWidth;
     const dh = viewport.designHeight;
     const ra = viewport.reelArea;
 
-    // Background — always fill design area
+    // Background — cover design area (crop, don't stretch)
     if (bg) {
-      bg.width = dw;
-      bg.height = dh;
+      const bgAspect = bg.texture.width / bg.texture.height;
+      const designAspect = dw / dh;
+
+      if (designAspect > bgAspect) {
+        // Design is wider — fit width, crop height
+        bg.width = dw;
+        bg.height = dw / bgAspect;
+      } else {
+        // Design is taller — fit height, crop width
+        bg.height = dh;
+        bg.width = dh * bgAspect;
+      }
+      // Center
+      bg.x = (dw - bg.width) / 2;
+      bg.y = (dh - bg.height) / 2;
     }
 
-    // Reel background
+    // Dark reel background
     reelBg.clear();
     reelBg.roundRect(ra.x - 5, ra.y - 5, ra.width + 10, ra.height + 10, 6);
     reelBg.fill({ color: 0x050d05, alpha: 0.85 });
@@ -82,13 +90,21 @@ async function main() {
       frame.y = ra.y - framePad;
     }
 
-    // Title — centered above reels
+    // Title
     if (title) {
-      const titleW = mode === 'desktop' ? 550 : dw * 0.55;
-      const titleScale = titleW / title.texture.width;
-      title.scale.set(titleScale);
-      title.x = dw / 2;
-      title.y = ra.y - framePad - (mode === 'desktop' ? 50 : 30);
+      if (mode === 'desktop') {
+        title.visible = true;
+        const titleScale = 550 / title.texture.width;
+        title.scale.set(titleScale);
+        title.x = dw / 2;
+        title.y = ra.y - framePad - 50;
+      } else {
+        title.visible = true;
+        const titleScale = (dw * 0.5) / title.texture.width;
+        title.scale.set(titleScale);
+        title.x = dw / 2;
+        title.y = ra.y - framePad - 25;
+      }
     }
 
     // Leprechaun
@@ -101,17 +117,14 @@ async function main() {
         leprechaun.x = ra.x - framePad - 80;
         leprechaun.y = ra.y + ra.height + 40;
       } else {
-        // Portrait: hide leprechaun (or make small above title)
         leprechaun.visible = false;
       }
     }
   };
 
-  // Register layout callback and trigger initial layout
   game.onLayout = doLayout;
   doLayout(game.responsiveManager.viewport, game.responsiveManager.mode);
 
-  // Expose for debugging
   if (import.meta.env.DEV) {
     (window as unknown as Record<string, unknown>).game = game;
   }

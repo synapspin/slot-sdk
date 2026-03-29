@@ -140,7 +140,7 @@ export const gameConfig: GameConfig = {
     portrait: {
       designWidth: 1080,
       designHeight: 1920,
-      reelArea: { x: 30, y: 200, width: 1020, height: 600 },
+      reelArea: { x: 25, y: 240, width: 1030, height: 700 },
       safeArea: { x: 20, y: 50, width: 1040, height: 1820 },
     },
   },

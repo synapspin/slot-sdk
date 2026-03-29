@@ -209,17 +209,18 @@ export class BottomBar extends Container {
     this.bg.fill({ color: 0x333366, alpha: 0.5 });
 
     if (mode === 'mobile') {
-      // Compact layout — offset by safe margins
-      this.balanceLabel.x = sl + 60;
-      this.balanceValue.x = sl + 60;
-      this.betLabel.x = sl + 180;
-      this.betSelector.x = sl + 130;
-      this.winLabel.x = width - sr - 180;
-      this.winValue.x = width - sr - 180;
+      // Portrait compact: balance left, bet center, win right, menu/auto at edges
+      const third = safeWidth / 3;
+      this.balanceLabel.x = sl + third * 0.5;
+      this.balanceValue.x = sl + third * 0.5;
+      this.betLabel.x = sl + third * 1.5;
+      this.betSelector.x = sl + third * 1.5 - 80;
+      this.winLabel.x = sl + third * 2.5;
+      this.winValue.x = sl + third * 2.5;
       this.spinButton.x = width / 2;
       this.spinButton.y = height / 2;
       this.menuBtn.x = sl + 10;
-      this.autoPlayBtn.x = width - sr - 90;
+      this.autoPlayBtn.x = width - sr - 54;
     } else {
       // Desktop layout — offset by safe margins
       this.balanceLabel.x = sl + 100;

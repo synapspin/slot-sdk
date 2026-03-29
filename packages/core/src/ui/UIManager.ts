@@ -39,8 +39,7 @@ export class UIManager implements LayoutTarget {
 
     // Large side spin button — right of reels, with keyboard support
     const reelArea = config.layout.reelArea;
-    const spinRadius = 65;
-    this.sideSpinButton = new SpinButton(spinRadius, eventBus, true);
+    this.sideSpinButton = new SpinButton(65, eventBus, true);
     this.sideSpinButton.x = reelArea.x + reelArea.width + 35 + 80;
     this.sideSpinButton.y = reelArea.y + reelArea.height / 2;
     this.layer.addChild(this.sideSpinButton);
@@ -128,8 +127,14 @@ export class UIManager implements LayoutTarget {
     const dw = viewport.designWidth;
     const dh = viewport.designHeight;
 
-    // Bottom bar — at bottom of current design, within safe area
-    const barY = Math.min(dh - barHeight, safe.y + safe.height - barHeight);
+    // Bottom bar position
+    let barY: number;
+    if (mode === 'desktop') {
+      barY = Math.min(dh - barHeight, safe.y + safe.height - barHeight);
+    } else {
+      // Portrait: place bar right below spin button
+      barY = reelArea.y + reelArea.height + 190;
+    }
     this.bottomBar.y = barY;
     this.bottomBar.layoutMode(mode, dw, barHeight);
     this.bottomBar.setSafeMargins(safe.x, dw - safe.x - safe.width);
@@ -137,18 +142,18 @@ export class UIManager implements LayoutTarget {
     if (mode === 'desktop') {
       // Landscape: side spin button right of reels
       this.sideSpinButton.visible = true;
+      this.sideSpinButton.scale.set(1);
       const spinX = reelArea.x + reelArea.width + 35 + 80;
       const maxX = safe.x + safe.width - 70;
       this.sideSpinButton.x = Math.min(spinX, maxX);
       this.sideSpinButton.y = reelArea.y + reelArea.height / 2;
       this.bottomBar.spinButton.visible = false;
     } else {
-      // Portrait: large spin button centered below reels
+      // Portrait: spin button centered right below reels, bigger
       this.sideSpinButton.visible = true;
+      this.sideSpinButton.scale.set(1.3); // scale up for touch
       this.sideSpinButton.x = dw / 2;
-      // Place spin button between bottom of reel area and bottom bar
-      const reelBottom = reelArea.y + reelArea.height + 50;
-      this.sideSpinButton.y = reelBottom + (barY - reelBottom) / 2;
+      this.sideSpinButton.y = reelArea.y + reelArea.height + 120;
       this.bottomBar.spinButton.visible = false;
     }
   }
