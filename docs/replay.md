@@ -96,7 +96,21 @@ const encoded = RoundRecorder.encode(record);
 const decoded = RoundRecorder.decode(encoded);
 ```
 
-## Replay Mode
+## In-Game Replay
+
+From the History panel, click **PLAY** to replay a round right in the current game:
+
+```typescript
+// Triggered by History panel, or manually:
+await game.playReplay(record);
+// Reels spin, stop on recorded result, wins show
+// Balance temporarily shows the recorded state
+// After replay: balance restored, game returns to idle
+```
+
+The SHARE button copies a replay URL to clipboard. The friend opens it and sees the exact same round play out.
+
+## URL Replay Mode
 
 When a user opens a URL with `?replay=...`, the game automatically:
 

@@ -6,7 +6,9 @@ import { SpinButton } from './SpinButton';
 import { AutoPlayPanel } from './AutoPlayPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { InfoMenu } from './InfoMenu';
+import { HistoryPanel } from './HistoryPanel';
 import { formatCurrency } from '../math/Currency';
+import type { RoundRecord } from '../replay/RoundRecorder';
 import type { SpinButtonState } from './SpinButton';
 import type { LayoutTarget, ViewportInfo, LayoutMode } from '../app/ResponsiveManager';
 import { Logger } from '../utils/Logger';
@@ -23,6 +25,7 @@ export class UIManager implements LayoutTarget {
   readonly autoPlayPanel: AutoPlayPanel;
   readonly settingsPanel: SettingsPanel;
   readonly infoMenu: InfoMenu;
+  readonly historyPanel: HistoryPanel;
 
   constructor(config: GameConfig, eventBus: EventBus, layer: Container) {
     this.config = config;
@@ -59,9 +62,14 @@ export class UIManager implements LayoutTarget {
     this.infoMenu = new InfoMenu(config.ui.infoPages ?? []);
     this.layer.addChild(this.infoMenu);
 
+    // History panel (will be connected to RoundRecorder from GameApp)
+    this.historyPanel = new HistoryPanel(() => []);
+    this.layer.addChild(this.historyPanel);
+
     // Wire menu button
     this.bottomBar.onMenu(() => this.openMenu());
     this.bottomBar.onAutoPlay(() => this.autoPlayPanel.open());
+    this.bottomBar.onHistory(() => this.historyPanel.open());
 
     this.setupListeners();
   }
@@ -88,6 +96,19 @@ export class UIManager implements LayoutTarget {
 
   openSettings(): void {
     this.settingsPanel.open();
+  }
+
+  /** Connect history panel to round recorder and replay callback */
+  connectHistory(
+    getRounds: () => RoundRecord[],
+    onPlayReplay: (record: RoundRecord) => void,
+  ): void {
+    const idx = this.layer.getChildIndex(this.historyPanel);
+    this.layer.removeChild(this.historyPanel);
+    const panel = new HistoryPanel(getRounds);
+    panel.onPlayReplay = onPlayReplay;
+    (this as any).historyPanel = panel;
+    this.layer.addChildAt(this.historyPanel, idx);
   }
 
   updateBalance(amount: number, currency: string): void {

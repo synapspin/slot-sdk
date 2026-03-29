@@ -189,6 +189,12 @@ export class GameApp implements LayoutTarget {
     // Inject plugin states into FSM
     this.featureRegistry.injectStates(this.stateMachine);
 
+    // Connect history panel to round recorder + replay
+    this.uiManager.connectHistory(
+      () => this.roundRecorder.getRounds(),
+      (record) => this.playReplay(record),
+    );
+
     // Setup responsive manager
     this.responsiveManager = new ResponsiveManager(
       this.app,
@@ -238,6 +244,63 @@ export class GameApp implements LayoutTarget {
       await this._preloader.finish();
       this._preloader = null;
     }
+  }
+
+  /**
+   * Play a recorded round replay in-game — reels spin, stop on recorded result,
+   * wins show, features play. Same visual experience the player had.
+   */
+  async playReplay(record: RoundRecord): Promise<void> {
+    // Only replay from idle state
+    if (this.stateMachine.currentStateId !== 'idle') {
+      this.logger.warn('Cannot start replay — game is not idle');
+      return;
+    }
+
+    this.logger.info(`Playing replay: round ${record.roundId}`);
+    this.replayMode = true;
+
+    // Save original server adapter and state
+    const originalServer = this.config.server;
+    const originalBet = this._currentBet;
+    const originalBalance = this._balance;
+
+    // Swap to replay server
+    const replayServer = new ReplayServerAdapter(record);
+    this.config.server = replayServer;
+    this._currentBet = record.player.bet;
+    this._balance = record.player.balanceBefore;
+    this.uiManager.updateBalance(this._balance, this._currency);
+    this.uiManager.updateBet(this._currentBet, this._currency);
+
+    // Trigger the spin — state machine will use ReplayServerAdapter
+    this.eventBus.emit('ui:spinButtonPressed', undefined as never);
+
+    // Wait for the full round to complete (back to idle)
+    await new Promise<void>((resolve) => {
+      const handler = ({ state }: { state: string }) => {
+        if (state === 'idle' && replayServer.isComplete) {
+          this.eventBus.off('state:entered', handler);
+          resolve();
+        }
+      };
+      this.eventBus.on('state:entered', handler);
+      // Safety timeout
+      setTimeout(() => {
+        this.eventBus.off('state:entered', handler);
+        resolve();
+      }, 30000);
+    });
+
+    // Restore original state
+    this.config.server = originalServer;
+    this._currentBet = originalBet;
+    this._balance = originalBalance;
+    this.uiManager.updateBalance(this._balance, this._currency);
+    this.uiManager.updateBet(this._currentBet, this._currency);
+    this.replayMode = false;
+
+    this.logger.info('Replay complete');
   }
 
   private async initFromServer(): Promise<void> {

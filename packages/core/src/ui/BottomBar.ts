@@ -18,13 +18,15 @@ export class BottomBar extends Container {
   readonly betSelector: BetSelector;
   private menuBtn: Button;
   private autoPlayBtn: Button;
+  private historyBtn: Button;
   private eventBus: EventBus;
   private barWidth: number;
   private barHeight: number;
 
-  // Callbacks for menu and autoplay
+  // Callbacks
   private onMenuCb: (() => void) | null = null;
   private onAutoPlayCb: (() => void) | null = null;
+  private onHistoryCb: (() => void) | null = null;
 
   constructor(
     width: number,
@@ -137,6 +139,21 @@ export class BottomBar extends Container {
     this.autoPlayBtn.onClick(() => this.onAutoPlayCb?.());
     this.addChild(this.autoPlayBtn);
 
+    // History button
+    this.historyBtn = new Button({
+      width: 44,
+      height: 44,
+      label: 'H',
+      fontSize: 16,
+      bgColor: 0x222233,
+      cornerRadius: 22,
+      borderWidth: 0,
+    });
+    this.historyBtn.x = 74;
+    this.historyBtn.y = (height - 44) / 2;
+    this.historyBtn.onClick(() => this.onHistoryCb?.());
+    this.addChild(this.historyBtn);
+
     // Spin button (right side)
     this.spinButton = new SpinButton(32, eventBus);
     this.spinButton.x = width - 70;
@@ -151,6 +168,11 @@ export class BottomBar extends Container {
 
   onAutoPlay(cb: () => void): this {
     this.onAutoPlayCb = cb;
+    return this;
+  }
+
+  onHistory(cb: () => void): this {
+    this.onHistoryCb = cb;
     return this;
   }
 
