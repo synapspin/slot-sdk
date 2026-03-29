@@ -1,0 +1,16 @@
+{
+  "name": "@lab9191/book-of-gold",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@lab9191/slot-core": "workspace:*",
+    "pixi.js": "^8.6.0",
+    "howler": "^2.2.4"
+  }
+}

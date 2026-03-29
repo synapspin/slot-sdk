@@ -1,0 +1,23 @@
+{
+  "private": true,
+  "name": "slot-sdk",
+  "scripts": {
+    "dev": "pnpm -r --filter './games/*' run dev",
+    "build:core": "pnpm --filter @lab9191/slot-core run build",
+    "build:all": "pnpm -r run build",
+    "create-game": "tsx tools/scripts/create-game.ts",
+    "lint": "eslint packages/ games/ --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "eslint": "^9.0.0",
+    "playwright": "^1.58.2",
+    "prettier": "^3.4.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0",
+    "vite-plugin-dts": "^4.3.0",
+    "vitest": "^3.0.0"
+  }
+}

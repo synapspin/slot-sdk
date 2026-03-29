@@ -1,0 +1,224 @@
+import { Container, Graphics, Text } from 'pixi.js';
+import { SpinButton } from './SpinButton';
+import { BetSelector } from './BetSelector';
+import { Button } from './components/Button';
+import { Label } from './components/Label';
+import { formatCurrency } from '../math/Currency';
+import type { EventBus } from '../events/EventBus';
+import type { LayoutMode } from '../app/ResponsiveManager';
+
+export class BottomBar extends Container {
+  private bg: Graphics;
+  private balanceLabel: Label;
+  private balanceValue: Label;
+  private winLabel: Label;
+  private winValue: Label;
+  private betLabel: Label;
+  readonly spinButton: SpinButton;
+  readonly betSelector: BetSelector;
+  private menuBtn: Button;
+  private autoPlayBtn: Button;
+  private eventBus: EventBus;
+  private barWidth: number;
+  private barHeight: number;
+
+  // Callbacks for menu and autoplay
+  private onMenuCb: (() => void) | null = null;
+  private onAutoPlayCb: (() => void) | null = null;
+
+  constructor(
+    width: number,
+    height: number,
+    eventBus: EventBus,
+  ) {
+    super();
+    this.eventBus = eventBus;
+    this.barWidth = width;
+    this.barHeight = height;
+
+    // Background
+    this.bg = new Graphics();
+    this.bg.rect(0, 0, width, height);
+    this.bg.fill({ color: 0x0d0d1a, alpha: 0.9 });
+    this.bg.rect(0, 0, width, 1);
+    this.bg.fill({ color: 0x333366, alpha: 0.5 });
+    this.addChild(this.bg);
+
+    // Balance section
+    this.balanceLabel = new Label({
+      text: 'BALANCE',
+      fontSize: 11,
+      color: 0x888888,
+      fontWeight: 'bold',
+      align: 'center',
+    });
+    this.balanceLabel.x = 100;
+    this.balanceLabel.y = 15;
+    this.addChild(this.balanceLabel);
+
+    this.balanceValue = new Label({
+      text: '0.00',
+      fontSize: 20,
+      color: 0xffffff,
+      fontWeight: 'bold',
+      align: 'center',
+    });
+    this.balanceValue.x = 100;
+    this.balanceValue.y = 40;
+    this.addChild(this.balanceValue);
+
+    // Bet section
+    this.betLabel = new Label({
+      text: 'BET',
+      fontSize: 11,
+      color: 0x888888,
+      fontWeight: 'bold',
+      align: 'center',
+    });
+    this.betLabel.x = 320;
+    this.betLabel.y = 15;
+    this.addChild(this.betLabel);
+
+    this.betSelector = new BetSelector(eventBus);
+    this.betSelector.x = 250;
+    this.betSelector.y = 25;
+    this.addChild(this.betSelector);
+
+    // Win section
+    this.winLabel = new Label({
+      text: 'WIN',
+      fontSize: 11,
+      color: 0x888888,
+      fontWeight: 'bold',
+      align: 'center',
+    });
+    this.winLabel.x = width - 300;
+    this.winLabel.y = 15;
+    this.addChild(this.winLabel);
+
+    this.winValue = new Label({
+      text: '',
+      fontSize: 24,
+      color: 0xffd700,
+      fontWeight: 'bold',
+      align: 'center',
+    });
+    this.winValue.x = width - 300;
+    this.winValue.y = 42;
+    this.addChild(this.winValue);
+
+    // Menu button
+    this.menuBtn = new Button({
+      width: 44,
+      height: 44,
+      label: '\u2630',
+      fontSize: 22,
+      bgColor: 0x222233,
+      cornerRadius: 22,
+      borderWidth: 0,
+    });
+    this.menuBtn.x = 20;
+    this.menuBtn.y = (height - 44) / 2;
+    this.menuBtn.onClick(() => this.onMenuCb?.());
+    this.addChild(this.menuBtn);
+
+    // Auto play button
+    this.autoPlayBtn = new Button({
+      width: 44,
+      height: 44,
+      label: 'A',
+      fontSize: 16,
+      bgColor: 0x222233,
+      cornerRadius: 22,
+      borderWidth: 0,
+    });
+    this.autoPlayBtn.x = width - 150;
+    this.autoPlayBtn.y = (height - 44) / 2;
+    this.autoPlayBtn.onClick(() => this.onAutoPlayCb?.());
+    this.addChild(this.autoPlayBtn);
+
+    // Spin button (right side)
+    this.spinButton = new SpinButton(32, eventBus);
+    this.spinButton.x = width - 70;
+    this.spinButton.y = height / 2;
+    this.addChild(this.spinButton);
+  }
+
+  onMenu(cb: () => void): this {
+    this.onMenuCb = cb;
+    return this;
+  }
+
+  onAutoPlay(cb: () => void): this {
+    this.onAutoPlayCb = cb;
+    return this;
+  }
+
+  updateBalance(amount: number, currency: string): void {
+    this.balanceValue.text = formatCurrency(amount, currency);
+  }
+
+  updateWin(amount: number, currency: string): void {
+    if (amount > 0) {
+      this.winValue.text = formatCurrency(amount, currency);
+    } else {
+      this.winValue.text = '';
+    }
+  }
+
+  updateBet(amount: number, currency: string): void {
+    this.betSelector.setCurrentBet(amount);
+  }
+
+  setBetLevels(levels: number[], currency: string): void {
+    this.betSelector.setBetLevels(levels, currency);
+  }
+
+  setSpinState(state: import('./SpinButton').SpinButtonState): void {
+    this.spinButton.state = state;
+  }
+
+  setInteractive(enabled: boolean): void {
+    this.betSelector.setEnabled(enabled);
+    this.menuBtn.enabled = enabled;
+    this.autoPlayBtn.enabled = enabled;
+  }
+
+  /** Reposition elements for layout mode */
+  layoutMode(mode: LayoutMode, width: number, height: number): void {
+    this.barWidth = width;
+    this.barHeight = height;
+
+    this.bg.clear();
+    this.bg.rect(0, 0, width, height);
+    this.bg.fill({ color: 0x0d0d1a, alpha: 0.9 });
+    this.bg.rect(0, 0, width, 1);
+    this.bg.fill({ color: 0x333366, alpha: 0.5 });
+
+    if (mode === 'mobile') {
+      // Compact layout
+      this.balanceLabel.x = 60;
+      this.balanceValue.x = 60;
+      this.betLabel.x = 180;
+      this.betSelector.x = 130;
+      this.winLabel.x = width - 180;
+      this.winValue.x = width - 180;
+      this.spinButton.x = width / 2;
+      this.spinButton.y = height / 2;
+      this.menuBtn.x = 10;
+      this.autoPlayBtn.x = width - 90;
+    } else {
+      // Desktop layout
+      this.balanceLabel.x = 100;
+      this.balanceValue.x = 100;
+      this.betLabel.x = 320;
+      this.betSelector.x = 250;
+      this.winLabel.x = width - 300;
+      this.winValue.x = width - 300;
+      this.spinButton.x = width - 70;
+      this.spinButton.y = height / 2;
+      this.menuBtn.x = 20;
+      this.autoPlayBtn.x = width - 150;
+    }
+  }
+}
