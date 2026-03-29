@@ -9,7 +9,6 @@ export interface LayoutTarget {
   layout(viewport: ViewportInfo, mode: LayoutMode): void;
 }
 
-/** Insets in real screen pixels */
 export interface SafeAreaInsets {
   top: number;
   right: number;
@@ -25,11 +24,14 @@ export interface ViewportInfo {
   /** Scale factor applied to the design canvas */
   scale: number;
   mode: LayoutMode;
+  /** Active design dimensions (changes between landscape/portrait) */
   designWidth: number;
   designHeight: number;
-  /** Safe area insets in screen pixels (accounts for notches, system bars, rounded corners) */
+  /** Active reel area for current orientation */
+  reelArea: { x: number; y: number; width: number; height: number };
+  /** Safe area insets in screen pixels */
   safeInsets: SafeAreaInsets;
-  /** Safe area rect in design coordinates — UI elements should stay within this */
+  /** Safe area rect in design coordinates */
   safeArea: { x: number; y: number; width: number; height: number };
 }
 
@@ -41,6 +43,7 @@ export class ResponsiveManager {
   private _viewport!: ViewportInfo;
   private _gameContainer: Container;
   private logger = new Logger('ResponsiveManager');
+  private _prevMode: LayoutMode | null = null;
 
   constructor(
     app: Application,
@@ -57,7 +60,7 @@ export class ResponsiveManager {
 
     window.addEventListener('resize', () => this.onResize());
     window.addEventListener('orientationchange', () => {
-      setTimeout(() => this.onResize(), 100);
+      setTimeout(() => this.onResize(), 150);
     });
   }
 
@@ -79,24 +82,7 @@ export class ResponsiveManager {
     return this._viewport.mode;
   }
 
-  /** Read CSS env(safe-area-inset-*) values from the browser */
-  private getDeviceSafeInsets(): SafeAreaInsets {
-    const style = getComputedStyle(document.documentElement);
-    const parse = (prop: string): number => {
-      const val = style.getPropertyValue(prop);
-      return parseFloat(val) || 0;
-    };
-    return {
-      top: parse('--sai-top') || parse('env(safe-area-inset-top)') || 0,
-      right: parse('--sai-right') || parse('env(safe-area-inset-right)') || 0,
-      bottom: parse('--sai-bottom') || parse('env(safe-area-inset-bottom)') || 0,
-      left: parse('--sai-left') || parse('env(safe-area-inset-left)') || 0,
-    };
-  }
-
-  /** Read safe area insets using a measurement element (more reliable cross-browser) */
   private measureSafeInsets(): SafeAreaInsets {
-    // Create a hidden element that uses env() values
     let probe = document.getElementById('__safe-area-probe') as HTMLDivElement | null;
     if (!probe) {
       probe = document.createElement('div');
@@ -111,7 +97,6 @@ export class ResponsiveManager {
       `;
       document.body.appendChild(probe);
     }
-
     const cs = getComputedStyle(probe);
     return {
       top: parseFloat(cs.paddingTop) || 0,
@@ -125,16 +110,41 @@ export class ResponsiveManager {
     const screenWidth = this.app.canvas.parentElement?.clientWidth ?? window.innerWidth;
     const screenHeight = this.app.canvas.parentElement?.clientHeight ?? window.innerHeight;
 
-    const mode: LayoutMode = screenWidth < screenHeight ? 'mobile' : 'desktop';
+    const isPortrait = screenHeight > screenWidth;
+    const mode: LayoutMode = isPortrait ? 'mobile' : 'desktop';
 
-    const designW = this.config.designWidth;
-    const designH = this.config.designHeight;
+    // Pick design dimensions based on orientation
+    let designW: number;
+    let designH: number;
+    let reelArea: { x: number; y: number; width: number; height: number };
+    let configSafe: { x: number; y: number; width: number; height: number } | undefined;
+
+    if (isPortrait && this.config.portrait) {
+      // Use explicit portrait config
+      designW = this.config.portrait.designWidth ?? this.config.designHeight;
+      designH = this.config.portrait.designHeight ?? this.config.designWidth;
+      reelArea = this.config.portrait.reelArea ?? this.autoPortraitReelArea(designW, designH);
+      configSafe = this.config.portrait.safeArea ?? this.config.safeArea;
+    } else if (isPortrait) {
+      // Auto-generate portrait layout: swap dimensions, recalculate reel area
+      designW = this.config.designHeight;
+      designH = this.config.designWidth;
+      reelArea = this.autoPortraitReelArea(designW, designH);
+      configSafe = this.config.safeArea
+        ? { x: 20, y: 20, width: designW - 40, height: designH - 40 }
+        : undefined;
+    } else {
+      // Landscape (default)
+      designW = this.config.designWidth;
+      designH = this.config.designHeight;
+      reelArea = this.config.reelArea;
+      configSafe = this.config.safeArea;
+    }
+
     const scale = Math.min(screenWidth / designW, screenHeight / designH);
 
-    // Get device safe area insets (notches, system bars, rounded corners)
+    // Device safe insets
     const deviceInsets = this.measureSafeInsets();
-
-    // Convert screen-pixel insets to design-coordinate insets
     const insetInDesign = {
       top: deviceInsets.top / scale,
       right: deviceInsets.right / scale,
@@ -142,19 +152,14 @@ export class ResponsiveManager {
       left: deviceInsets.left / scale,
     };
 
-    // Merge with config safe area (if defined, it sets minimum insets)
-    const configSafe = this.config.safeArea;
+    // Compute safe area in design coords
     let safeX: number, safeY: number, safeW: number, safeH: number;
-
     if (configSafe) {
-      // Config safe area defines absolute rect in design coords
-      // Merge with device insets — take the more restrictive
       safeX = Math.max(configSafe.x, insetInDesign.left);
       safeY = Math.max(configSafe.y, insetInDesign.top);
       safeW = Math.min(configSafe.x + configSafe.width, designW - insetInDesign.right) - safeX;
       safeH = Math.min(configSafe.y + configSafe.height, designH - insetInDesign.bottom) - safeY;
     } else {
-      // No config — use device insets only
       safeX = insetInDesign.left;
       safeY = insetInDesign.top;
       safeW = designW - insetInDesign.left - insetInDesign.right;
@@ -168,24 +173,46 @@ export class ResponsiveManager {
       mode,
       designWidth: designW,
       designHeight: designH,
+      reelArea,
       safeInsets: deviceInsets,
       safeArea: { x: safeX, y: safeY, width: safeW, height: safeH },
     };
 
-    // Scale and center the game container
+    // Scale and center
     this._gameContainer.scale.set(scale);
     this._gameContainer.x = (screenWidth - designW * scale) / 2;
     this._gameContainer.y = (screenHeight - designH * scale) / 2;
 
-    // Notify all layout targets
+    // Notify all targets
     for (const target of this.targets) {
       target.layout(this._viewport, mode);
     }
 
+    if (this._prevMode !== mode) {
+      this.logger.info(`Orientation: ${mode} (${designW}x${designH})`);
+      this._prevMode = mode;
+    }
     this.logger.debug(
-      `Resize: ${screenWidth}x${screenHeight}, scale=${scale.toFixed(3)}, mode=${mode}, ` +
-      `safe=[${safeX.toFixed(0)},${safeY.toFixed(0)} ${safeW.toFixed(0)}x${safeH.toFixed(0)}], ` +
-      `deviceInsets=[T:${deviceInsets.top} R:${deviceInsets.right} B:${deviceInsets.bottom} L:${deviceInsets.left}]`,
+      `Resize: ${screenWidth}x${screenHeight}, scale=${scale.toFixed(3)}, ` +
+      `reelArea=[${reelArea.x},${reelArea.y} ${reelArea.width}x${reelArea.height}]`,
     );
+  }
+
+  /** Auto-calculate portrait reel area: reels fill width, centered vertically */
+  private autoPortraitReelArea(
+    designW: number,
+    designH: number,
+  ): { x: number; y: number; width: number; height: number } {
+    const landscapeReels = this.config.reelArea;
+    const reelAspect = landscapeReels.width / landscapeReels.height;
+
+    // In portrait, reels take ~90% of width
+    const reelW = designW * 0.9;
+    const reelH = reelW / reelAspect;
+    const reelX = (designW - reelW) / 2;
+    // Place reels in upper-center area, leaving room for UI below
+    const reelY = designH * 0.12;
+
+    return { x: reelX, y: reelY, width: reelW, height: reelH };
   }
 }

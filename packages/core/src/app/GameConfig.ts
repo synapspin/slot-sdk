@@ -44,16 +44,27 @@ export interface GameConfig {
 }
 
 export interface LayoutConfig {
-  /** Design width in pixels */
+  /** Design width in pixels (landscape) */
   designWidth: number;
-  /** Design height in pixels */
+  /** Design height in pixels (landscape) */
   designHeight: number;
   /** Safe area within design */
   safeArea?: { x: number; y: number; width: number; height: number };
   /** Supported orientations */
   orientation: 'landscape' | 'portrait' | 'both';
-  /** Reel area position/size within design */
+  /** Reel area position/size within design (landscape) */
   reelArea: { x: number; y: number; width: number; height: number };
+
+  /** Portrait mode overrides — if not set, auto-calculated from landscape */
+  portrait?: {
+    /** Design dimensions for portrait (default: swap landscape w/h) */
+    designWidth?: number;
+    designHeight?: number;
+    /** Reel area in portrait coordinates */
+    reelArea?: { x: number; y: number; width: number; height: number };
+    /** Safe area for portrait */
+    safeArea?: { x: number; y: number; width: number; height: number };
+  };
 }
 
 export interface UIConfig {

@@ -1,5 +1,6 @@
 import { Sprite, Assets, Graphics } from 'pixi.js';
 import { GameApp, LogLevel, Logger } from '@lab9191/slot-core';
+import type { ViewportInfo, LayoutMode } from '@lab9191/slot-core';
 import { gameConfig } from './GameDefinition';
 
 if (import.meta.env.DEV) {
@@ -15,65 +16,96 @@ async function main() {
   const game = new GameApp(gameConfig);
   await game.boot(container);
 
-  const reelArea = gameConfig.layout.reelArea;
-  const framePad = 35;
-
-  // ─── Background (bottom of game layer) ──────────────────
+  // ─── Decorative elements ─────────────────────────────────
+  // Background
+  let bg: Sprite | null = null;
   const bgTexture = Assets.get('bg_main');
   if (bgTexture) {
-    const bg = new Sprite(bgTexture);
-    bg.width = 1920;
-    bg.height = 1080;
+    bg = new Sprite(bgTexture);
     game.layers.game.addChildAt(bg, 0);
   }
 
-  // ─── Dark reel background (under reelSet) ────────────────
+  // Dark reel background
   const reelBg = new Graphics();
-  reelBg.roundRect(reelArea.x - 5, reelArea.y - 5, reelArea.width + 10, reelArea.height + 10, 6);
-  reelBg.fill({ color: 0x050d05, alpha: 0.85 });
   game.layers.reels.addChildAt(reelBg, 0);
 
-  // ─── Reel Frame OVER symbols (on fx layer, above reelSet) ─
+  // Reel frame (on fx layer — above symbols)
+  let frame: Sprite | null = null;
   const frameTexture = Assets.get('reel_frame');
   if (frameTexture) {
-    const frame = new Sprite(frameTexture);
-    frame.width = reelArea.width + framePad * 2;
-    frame.height = reelArea.height + framePad * 2;
-    frame.x = reelArea.x - framePad;
-    frame.y = reelArea.y - framePad;
-    // fx layer renders ABOVE reel layer, so frame overlaps symbol edges
+    frame = new Sprite(frameTexture);
     game.layers.fx.addChildAt(frame, 0);
   }
 
-  // ─── Game Title (above frame, larger) ───────────────────
+  // Game title
+  let title: Sprite | null = null;
   const titleTexture = Assets.get('game_title');
   if (titleTexture) {
-    const title = new Sprite(titleTexture);
+    title = new Sprite(titleTexture);
     title.anchor.set(0.5);
-    const titleScale = 550 / title.width;
-    title.scale.set(titleScale);
-    title.x = reelArea.x + reelArea.width / 2;
-    // Position above the frame top edge with clear gap
-    title.y = reelArea.y - framePad - 50;
     game.layers.game.addChild(title);
   }
 
-  // ─── Leprechaun character left of reels ─────────────────
+  // Leprechaun character
+  let leprechaun: Sprite | null = null;
   const leprechaunTexture = Assets.get('leprechaun_full');
   if (leprechaunTexture) {
-    const leprechaun = new Sprite(leprechaunTexture);
+    leprechaun = new Sprite(leprechaunTexture);
     leprechaun.anchor.set(0.5, 1);
-    const charHeight = reelArea.height * 0.88;
-    const charScale = charHeight / leprechaun.height;
-    leprechaun.scale.set(charScale);
-    // Position well clear of frame left edge
-    const frameLeft = reelArea.x - framePad;
-    const charHalfWidth = (leprechaun.width * charScale) / 2;
-    leprechaun.x = frameLeft - 80;
-    // Feet on the grass, aligned with bottom of reel area
-    leprechaun.y = reelArea.y + reelArea.height + 40;
     game.layers.game.addChild(leprechaun);
   }
+
+  // ─── Layout callback — repositions everything on resize/orientation ─
+  const framePad = 35;
+
+  game.onLayout = (viewport: ViewportInfo, mode: LayoutMode) => {
+    const dw = viewport.designWidth;
+    const dh = viewport.designHeight;
+    const ra = viewport.reelArea;
+
+    // Background — always fill design area
+    if (bg) {
+      bg.width = dw;
+      bg.height = dh;
+    }
+
+    // Reel background
+    reelBg.clear();
+    reelBg.roundRect(ra.x - 5, ra.y - 5, ra.width + 10, ra.height + 10, 6);
+    reelBg.fill({ color: 0x050d05, alpha: 0.85 });
+
+    // Frame
+    if (frame) {
+      frame.width = ra.width + framePad * 2;
+      frame.height = ra.height + framePad * 2;
+      frame.x = ra.x - framePad;
+      frame.y = ra.y - framePad;
+    }
+
+    // Title — centered above reels
+    if (title) {
+      const titleW = mode === 'desktop' ? 550 : dw * 0.55;
+      const titleScale = titleW / title.texture.width;
+      title.scale.set(titleScale);
+      title.x = dw / 2;
+      title.y = ra.y - framePad - (mode === 'desktop' ? 50 : 30);
+    }
+
+    // Leprechaun
+    if (leprechaun) {
+      if (mode === 'desktop') {
+        leprechaun.visible = true;
+        const charHeight = ra.height * 0.85;
+        const charScale = charHeight / leprechaun.texture.height;
+        leprechaun.scale.set(charScale);
+        leprechaun.x = ra.x - framePad - 80;
+        leprechaun.y = ra.y + ra.height + 40;
+      } else {
+        // Portrait: hide leprechaun (or make small above title)
+        leprechaun.visible = false;
+      }
+    }
+  };
 
   // Expose for debugging
   if (import.meta.env.DEV) {

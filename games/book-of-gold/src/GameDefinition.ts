@@ -132,10 +132,17 @@ export const gameConfig: GameConfig = {
     designWidth: 1920,
     designHeight: 1080,
     orientation: 'both',
-    /** Safe area — all interactive UI stays within this rect.
-     *  Background and decorative elements can bleed outside. */
+    /** Safe area — all interactive UI stays within this rect. */
     safeArea: { x: 40, y: 10, width: 1840, height: 1060 },
+    /** Landscape reel area */
     reelArea: { x: 480, y: 165, width: 1000, height: 590 },
+    /** Portrait mode overrides */
+    portrait: {
+      designWidth: 1080,
+      designHeight: 1920,
+      reelArea: { x: 30, y: 200, width: 1020, height: 600 },
+      safeArea: { x: 20, y: 50, width: 1040, height: 1820 },
+    },
   },
 
   reels: {

@@ -123,32 +123,33 @@ export class UIManager implements LayoutTarget {
    */
   layout(viewport: ViewportInfo, mode: LayoutMode): void {
     const barHeight = this.config.ui.bottomBarHeight ?? 70;
-    const reelArea = this.config.layout.reelArea;
+    const reelArea = viewport.reelArea;
     const safe = viewport.safeArea;
+    const dw = viewport.designWidth;
+    const dh = viewport.designHeight;
 
-    // Bottom bar — sits at bottom of design but respects safe area bottom inset
-    const barY = Math.min(
-      this.config.layout.designHeight - barHeight,
-      safe.y + safe.height - barHeight,
-    );
+    // Bottom bar — at bottom of current design, within safe area
+    const barY = Math.min(dh - barHeight, safe.y + safe.height - barHeight);
     this.bottomBar.y = barY;
-    this.bottomBar.layoutMode(mode, this.config.layout.designWidth, barHeight);
-
-    // Ensure bottom bar controls are within safe area horizontally
-    this.bottomBar.setSafeMargins(safe.x, this.config.layout.designWidth - safe.x - safe.width);
+    this.bottomBar.layoutMode(mode, dw, barHeight);
+    this.bottomBar.setSafeMargins(safe.x, dw - safe.x - safe.width);
 
     if (mode === 'desktop') {
-      // Side spin button — right of reels but within safe area
+      // Landscape: side spin button right of reels
       this.sideSpinButton.visible = true;
       const spinX = reelArea.x + reelArea.width + 35 + 80;
-      const maxX = safe.x + safe.width - 70; // 70px from safe right edge
+      const maxX = safe.x + safe.width - 70;
       this.sideSpinButton.x = Math.min(spinX, maxX);
       this.sideSpinButton.y = reelArea.y + reelArea.height / 2;
       this.bottomBar.spinButton.visible = false;
     } else {
-      // Mobile: hide side button, show in bottom bar
-      this.sideSpinButton.visible = false;
-      this.bottomBar.spinButton.visible = true;
+      // Portrait: large spin button centered below reels
+      this.sideSpinButton.visible = true;
+      this.sideSpinButton.x = dw / 2;
+      // Place spin button between bottom of reel area and bottom bar
+      const reelBottom = reelArea.y + reelArea.height + 50;
+      this.sideSpinButton.y = reelBottom + (barY - reelBottom) / 2;
+      this.bottomBar.spinButton.visible = false;
     }
   }
 }

@@ -1,6 +1,7 @@
 import { Application, Container } from 'pixi.js';
 import type { GameConfig } from './GameConfig';
 import { ResponsiveManager } from './ResponsiveManager';
+import type { LayoutTarget, ViewportInfo, LayoutMode } from './ResponsiveManager';
 import { EventBus } from '../events/EventBus';
 import { ReelSet } from '../reels/ReelSet';
 import { SymbolRegistry } from '../symbols/SymbolRegistry';
@@ -14,7 +15,7 @@ import type { GameContext, AutoPlayConfig } from '../state/StateMachine';
 import type { SpinResponse, InitResponse } from '../server/ServerMessage';
 import { Logger } from '../utils/Logger';
 
-export class GameApp {
+export class GameApp implements LayoutTarget {
   public app!: Application;
   public eventBus: EventBus;
   public reelSet!: ReelSet;
@@ -45,6 +46,10 @@ export class GameApp {
   private _lastResponse: SpinResponse | null = null;
   private _totalWin = 0;
   private _featureState: Record<string, unknown> = {};
+
+  /** Game-level layout callback — called on every resize/orientation change.
+   *  Use this to reposition decorative elements (background, frame, characters). */
+  private _onLayout: ((viewport: ViewportInfo, mode: LayoutMode) => void) | null = null;
 
   constructor(config: GameConfig) {
     this.config = config;
@@ -140,6 +145,10 @@ export class GameApp {
       this.config.layout,
       this.eventBus,
     );
+
+    // Register self and UI as layout targets
+    this.responsiveManager.register(this);
+    this.responsiveManager.register(this.uiManager);
 
     // Setup event listeners
     this.setupEventListeners();
@@ -285,6 +294,40 @@ export class GameApp {
       ui: this.uiLayer,
       fx: this.fxLayer,
     };
+  }
+
+  /** Register a callback for layout changes (orientation, resize).
+   *  Use this in main.ts to reposition decorative elements. */
+  set onLayout(cb: (viewport: ViewportInfo, mode: LayoutMode) => void) {
+    this._onLayout = cb;
+  }
+
+  /** LayoutTarget implementation — repositions reels on resize/orientation change */
+  layout(viewport: ViewportInfo, mode: LayoutMode): void {
+    const reelArea = viewport.reelArea;
+
+    // Reposition reels to match current orientation's reel area
+    this.reelSet.x = reelArea.x + (reelArea.width - this.reelSet.totalWidth) / 2;
+    this.reelSet.y = reelArea.y + (reelArea.height - this.reelSet.totalHeight) / 2;
+
+    // Scale reels if portrait reel area is smaller/larger than designed symbol size
+    const reelFitScale = Math.min(
+      reelArea.width / this.reelSet.totalWidth,
+      reelArea.height / this.reelSet.totalHeight,
+    );
+    if (Math.abs(reelFitScale - 1) > 0.01) {
+      this.reelSet.scale.set(reelFitScale);
+      // Re-center after scaling
+      const scaledW = this.reelSet.totalWidth * reelFitScale;
+      const scaledH = this.reelSet.totalHeight * reelFitScale;
+      this.reelSet.x = reelArea.x + (reelArea.width - scaledW) / 2;
+      this.reelSet.y = reelArea.y + (reelArea.height - scaledH) / 2;
+    } else {
+      this.reelSet.scale.set(1);
+    }
+
+    // Call game-level layout callback
+    this._onLayout?.(viewport, mode);
   }
 
   destroy(): void {
