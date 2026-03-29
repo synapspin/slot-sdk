@@ -9,7 +9,6 @@ import { SoundManager } from '../sound/SoundManager';
 import { AssetLoader } from '../assets/AssetLoader';
 import { UIManager } from '../ui/UIManager';
 import { Preloader } from '../ui/Preloader';
-import type { PreloaderConfig } from '../ui/Preloader';
 import { GameStateMachine } from '../state/GameStateMachine';
 import { FeatureRegistry } from '../features/FeatureRegistry';
 import { TweenManager } from '../utils/Tween';
@@ -72,43 +71,42 @@ export class GameApp implements LayoutTarget {
     });
     container.appendChild(this.app.canvas);
 
+    // Show HTML preloader overlay (does NOT touch PixiJS at all)
+    const preloader = this.config.preloader
+      ? new Preloader(container, this.config.preloader)
+      : null;
+
     // Initialize tween system
     TweenManager.init(this.app.ticker);
 
-    // Create layer hierarchy (hidden until preloader finishes)
+    // Create layer hierarchy
     this.gameContainer = new Container();
     this.reelLayer = new Container();
     this.uiLayer = new Container();
     this.fxLayer = new Container();
-    this.gameContainer.visible = false;
 
     this.app.stage.addChild(this.gameContainer);
     this.gameContainer.addChild(this.reelLayer);
     this.gameContainer.addChild(this.fxLayer);
     this.gameContainer.addChild(this.uiLayer);
 
-    // Show preloader on top of everything
-    const preloader = new Preloader(this.app, this.config.preloader);
-    this.app.stage.addChild(preloader);
-
-    // Load assets with progress reporting to preloader
+    // Load assets with progress reporting
     if (this.config.assetBundles.length > 0) {
       await AssetLoader.init(this.config.assetBundles);
       const preloadBundle = this.config.assetBundles.find((b) => b.name === 'preload');
       if (preloadBundle) {
         await AssetLoader.loadBundle('preload', (p) => {
-          preloader.progress = p * 0.3; // preload = 0-30%
+          if (preloader) preloader.progress = p * 0.3;
         });
       }
-      // Load main game bundle
       const gameBundle = this.config.assetBundles.find((b) => b.name === 'game');
       if (gameBundle) {
         await AssetLoader.loadBundle('game', (p) => {
-          preloader.progress = 0.3 + p * 0.6; // game = 30-90%
+          if (preloader) preloader.progress = 0.3 + p * 0.6;
         });
       }
     }
-    preloader.progress = 0.95;
+    if (preloader) preloader.progress = 0.95;
 
     // Initialize symbol registry
     this.symbolRegistry = new SymbolRegistry(this.config.symbols);
@@ -175,10 +173,11 @@ export class GameApp implements LayoutTarget {
       this.stateMachine.update(delta);
     });
 
-    // Show game behind preloader, then fade out preloader
-    this.gameContainer.visible = true;
-    preloader.progress = 1;
-    await preloader.finish();
+    // Fade out preloader (HTML overlay — PixiJS untouched)
+    if (preloader) {
+      preloader.progress = 1;
+      await preloader.finish();
+    }
 
     this.eventBus.emit('game:ready', undefined as never);
     this.logger.info('Game ready');

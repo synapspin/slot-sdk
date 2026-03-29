@@ -1,254 +1,144 @@
-import { Container, Graphics, Text, Application } from 'pixi.js';
-
 export interface PreloaderConfig {
   /** Brand text to animate (e.g. "LAB9191") */
   brandText: string;
   /** Tagline below brand */
   tagline?: string;
   /** Background color */
-  bgColor: number;
+  bgColor: string;
   /** Brand text color */
-  brandColor: number;
-  /** Brand glow color */
-  glowColor: number;
+  brandColor: string;
   /** Accent color for progress bar */
-  accentColor: number;
+  accentColor: string;
   /** Font family */
   fontFamily: string;
-  /** Duration of brand reveal animation (ms) */
-  revealDuration: number;
-  /** Minimum display time even if assets load faster (ms) */
+  /** Minimum display time (ms) */
   minDisplayTime: number;
 }
 
 const DEFAULT_CONFIG: PreloaderConfig = {
   brandText: 'LAB9191',
   tagline: 'G A M E S',
-  bgColor: 0x0a0a14,
-  brandColor: 0xffffff,
-  glowColor: 0x4488ff,
-  accentColor: 0x4488ff,
+  bgColor: '#0a0a14',
+  brandColor: '#ffffff',
+  accentColor: '#22cc66',
   fontFamily: 'Roboto, Arial, sans-serif',
-  revealDuration: 1800,
   minDisplayTime: 2500,
 };
 
-interface LetterObj {
-  text: Text;
-  targetX: number;
-  targetY: number;
-  delay: number;
-}
-
-export class Preloader extends Container {
+/**
+ * HTML-based preloader overlay — renders OVER the canvas element.
+ * Does not interfere with PixiJS rendering pipeline.
+ */
+export class Preloader {
   private config: PreloaderConfig;
-  private bg: Graphics;
-  private letters: LetterObj[] = [];
-  private taglineText: Text | null = null;
-  private progressBg: Graphics;
-  private progressFill: Graphics;
-  private progressText: Text;
+  private overlay: HTMLDivElement;
+  private progressBar: HTMLDivElement;
+  private percentText: HTMLDivElement;
   private _progress = 0;
-  private startTime = 0;
-  private animFrame = 0;
-  private centerX: number;
-  private centerY: number;
+  private startTime: number;
 
-  constructor(
-    app: Application,
-    config?: Partial<PreloaderConfig>,
-  ) {
-    super();
+  constructor(container: HTMLElement, config?: Partial<PreloaderConfig>) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+    this.startTime = performance.now();
 
-    const w = app.canvas.width / (app.renderer.resolution || 1);
-    const h = app.canvas.height / (app.renderer.resolution || 1);
-    this.centerX = w / 2;
-    this.centerY = h / 2;
+    // Create overlay div
+    this.overlay = document.createElement('div');
+    this.overlay.style.cssText = `
+      position: absolute; inset: 0; z-index: 1000;
+      background: ${this.config.bgColor};
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-family: ${this.config.fontFamily};
+      transition: opacity 0.4s ease-out;
+      overflow: hidden;
+    `;
 
-    // Full-screen background
-    this.bg = new Graphics();
-    this.bg.rect(0, 0, w, h);
-    this.bg.fill(this.config.bgColor);
-    this.addChild(this.bg);
+    // Brand letters
+    const brandRow = document.createElement('div');
+    brandRow.style.cssText = 'display: flex; gap: 4px; margin-bottom: 12px;';
 
-    // Create letters for brand animation
-    this.createBrandLetters();
+    const chars = this.config.brandText.split('');
+    chars.forEach((char, i) => {
+      const span = document.createElement('span');
+      span.textContent = char;
+      span.style.cssText = `
+        font-size: 72px; font-weight: 900;
+        color: ${this.config.brandColor};
+        opacity: 0; transform: translateY(30px) scale(0.5);
+        transition: opacity 0.5s ease-out, transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+        display: inline-block;
+      `;
+      // Stagger animation
+      setTimeout(() => {
+        span.style.opacity = '1';
+        span.style.transform = 'translateY(0) scale(1)';
+      }, 150 + i * 100);
+      brandRow.appendChild(span);
+    });
+    this.overlay.appendChild(brandRow);
 
     // Tagline
     if (this.config.tagline) {
-      this.taglineText = new Text({
-        text: this.config.tagline,
-        style: {
-          fontFamily: this.config.fontFamily,
-          fontSize: 18,
-          fill: this.config.brandColor,
-          letterSpacing: 8,
-          fontWeight: '300',
-        },
-      });
-      this.taglineText.anchor.set(0.5);
-      this.taglineText.x = this.centerX;
-      this.taglineText.y = this.centerY + 50;
-      this.taglineText.alpha = 0;
-      this.addChild(this.taglineText);
+      const tagline = document.createElement('div');
+      tagline.textContent = this.config.tagline;
+      tagline.style.cssText = `
+        font-size: 16px; letter-spacing: 8px; font-weight: 300;
+        color: ${this.config.brandColor}; opacity: 0;
+        transition: opacity 0.6s ease-out 0.8s;
+        margin-bottom: 40px;
+      `;
+      setTimeout(() => { tagline.style.opacity = '0.8'; }, 100);
+      this.overlay.appendChild(tagline);
     }
 
-    // Progress bar
-    const barWidth = 260;
-    const barHeight = 4;
-    const barX = this.centerX - barWidth / 2;
-    const barY = this.centerY + 90;
+    // Progress bar container
+    const barContainer = document.createElement('div');
+    barContainer.style.cssText = `
+      width: 260px; height: 4px; border-radius: 2px;
+      background: rgba(255,255,255,0.12); overflow: hidden;
+      margin-bottom: 8px;
+    `;
 
-    this.progressBg = new Graphics();
-    this.progressBg.roundRect(barX, barY, barWidth, barHeight, 2);
-    this.progressBg.fill({ color: 0xffffff, alpha: 0.15 });
-    this.addChild(this.progressBg);
+    this.progressBar = document.createElement('div');
+    this.progressBar.style.cssText = `
+      width: 0%; height: 100%; border-radius: 2px;
+      background: ${this.config.accentColor};
+      transition: width 0.3s ease-out;
+    `;
+    barContainer.appendChild(this.progressBar);
+    this.overlay.appendChild(barContainer);
 
-    this.progressFill = new Graphics();
-    this.addChild(this.progressFill);
+    // Percent text
+    this.percentText = document.createElement('div');
+    this.percentText.textContent = '0%';
+    this.percentText.style.cssText = `
+      font-size: 12px; color: #666;
+    `;
+    this.overlay.appendChild(this.percentText);
 
-    this.progressText = new Text({
-      text: '0%',
-      style: {
-        fontFamily: this.config.fontFamily,
-        fontSize: 12,
-        fill: 0x888888,
-      },
-    });
-    this.progressText.anchor.set(0.5);
-    this.progressText.x = this.centerX;
-    this.progressText.y = barY + 20;
-    this.addChild(this.progressText);
-
-    this.startTime = performance.now();
-
-    // Start animation loop
-    app.ticker.add(this.animate, this);
-    this._tickerRef = app.ticker;
-    this._animateFn = this.animate;
+    // Make container relative for absolute positioning
+    const origPosition = container.style.position;
+    if (!origPosition || origPosition === 'static') {
+      container.style.position = 'relative';
+    }
+    container.appendChild(this.overlay);
   }
 
-  private _tickerRef: any;
-  private _animateFn: any;
-
-  private createBrandLetters(): void {
-    const chars = this.config.brandText.split('');
-    const fontSize = 72;
-    const gap = 6; // fixed gap between letters
-
-    // Measure each letter width individually
-    const letterWidths: number[] = [];
-    for (const char of chars) {
-      const t = new Text({ text: char, style: { fontFamily: this.config.fontFamily, fontSize, fontWeight: '900' } });
-      letterWidths.push(t.width);
-      t.destroy();
-    }
-    const totalWidth = letterWidths.reduce((s, w) => s + w, 0) + gap * (chars.length - 1);
-    let xOffset = this.centerX - totalWidth / 2;
-
-    chars.forEach((char, i) => {
-      const text = new Text({
-        text: char,
-        style: {
-          fontFamily: this.config.fontFamily,
-          fontSize,
-          fontWeight: '900',
-          fill: this.config.brandColor,
-        },
-      });
-      text.anchor.set(0.5);
-
-      const targetX = xOffset + letterWidths[i] / 2;
-      const targetY = this.centerY - 15;
-
-      // Start position: spread out randomly, invisible
-      text.x = targetX + (Math.random() - 0.5) * 200;
-      text.y = targetY + (Math.random() - 0.5) * 100 + 40;
-      text.alpha = 0;
-      text.scale.set(0.3 + Math.random() * 0.5);
-      text.rotation = (Math.random() - 0.5) * 0.4;
-
-      xOffset += letterWidths[i] + gap;
-
-      this.addChild(text);
-      this.letters.push({
-        text,
-        targetX,
-        targetY,
-        delay: i * 120, // stagger each letter
-      });
-    });
-  }
-
-  private animate = (): void => {
-    const elapsed = performance.now() - this.startTime;
-    this.animFrame++;
-
-    // Animate each letter
-    for (const letter of this.letters) {
-      const t = Math.max(0, elapsed - letter.delay) / 600; // 600ms per letter
-      if (t <= 0) continue;
-
-      const p = Math.min(t, 1);
-      // Ease out elastic for that Pixar-style pop
-      const eased = p === 1 ? 1 : 1 - Math.pow(2, -10 * p) * Math.cos((p * 10 - 0.75) * (2 * Math.PI / 3));
-
-      letter.text.x = letter.text.x + (letter.targetX - letter.text.x) * 0.12;
-      letter.text.y = letter.text.y + (letter.targetY - letter.text.y) * 0.12;
-      letter.text.alpha = Math.min(p * 2, 1);
-      letter.text.scale.set(0.5 + eased * 0.5);
-      letter.text.rotation *= 0.92; // dampen rotation
-
-      // Glow shimmer after landing
-      if (p >= 1) {
-        const shimmer = Math.sin(elapsed * 0.003 + letter.delay * 0.01) * 0.15 + 0.85;
-        letter.text.alpha = shimmer + 0.15;
-      }
-    }
-
-    // Tagline fade in after letters
-    if (this.taglineText) {
-      const tagDelay = this.letters.length * 120 + 400;
-      const tagProgress = Math.max(0, (elapsed - tagDelay) / 500);
-      this.taglineText.alpha = Math.min(tagProgress, 1);
-      if (tagProgress > 0 && tagProgress < 1) {
-        this.taglineText.y = this.centerY + 50 - (1 - tagProgress) * 10;
-      }
-    }
-
-    // Update progress bar
-    this.drawProgress();
-  };
-
-  private drawProgress(): void {
-    const barWidth = 260;
-    const barHeight = 4;
-    const barX = this.centerX - barWidth / 2;
-    const barY = this.centerY + 90;
-
-    this.progressFill.clear();
-    if (this._progress > 0) {
-      this.progressFill.roundRect(barX, barY, barWidth * this._progress, barHeight, 2);
-      this.progressFill.fill(this.config.accentColor);
-    }
-
-    this.progressText.text = `${Math.round(this._progress * 100)}%`;
-  }
-
-  /** Update loading progress (0 to 1) */
   set progress(value: number) {
     this._progress = Math.max(0, Math.min(1, value));
+    this.progressBar.style.width = `${this._progress * 100}%`;
+    this.percentText.textContent = `${Math.round(this._progress * 100)}%`;
   }
 
   get progress(): number {
     return this._progress;
   }
 
-  /** Wait for minimum display time then fade out */
+  /** Wait for minimum display time, then fade out and remove */
   async finish(): Promise<void> {
     this._progress = 1;
-    this.drawProgress();
+    this.progressBar.style.width = '100%';
+    this.percentText.textContent = '100%';
 
     // Ensure minimum display time
     const elapsed = performance.now() - this.startTime;
@@ -258,25 +148,10 @@ export class Preloader extends Container {
     }
 
     // Fade out
-    const fadeDuration = 400;
-    const fadeStart = performance.now();
-    await new Promise<void>((resolve) => {
-      const fadeStep = () => {
-        const t = (performance.now() - fadeStart) / fadeDuration;
-        this.alpha = 1 - Math.min(t, 1);
-        if (t >= 1) {
-          resolve();
-        } else {
-          requestAnimationFrame(fadeStep);
-        }
-      };
-      requestAnimationFrame(fadeStep);
-    });
+    this.overlay.style.opacity = '0';
+    await new Promise((r) => setTimeout(r, 450));
 
-    // Cleanup
-    if (this._tickerRef) {
-      this._tickerRef.remove(this._animateFn);
-    }
-    this.destroy({ children: true });
+    // Remove from DOM
+    this.overlay.remove();
   }
 }
