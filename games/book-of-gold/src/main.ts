@@ -58,7 +58,7 @@ async function main() {
   // ─── Layout callback — repositions everything on resize/orientation ─
   const framePad = 35;
 
-  game.onLayout = (viewport: ViewportInfo, mode: LayoutMode) => {
+  const doLayout = (viewport: ViewportInfo, mode: LayoutMode) => {
     const dw = viewport.designWidth;
     const dh = viewport.designHeight;
     const ra = viewport.reelArea;
@@ -106,6 +106,10 @@ async function main() {
       }
     }
   };
+
+  // Register layout callback and trigger initial layout
+  game.onLayout = doLayout;
+  doLayout(game.responsiveManager.viewport, game.responsiveManager.mode);
 
   // Expose for debugging
   if (import.meta.env.DEV) {
